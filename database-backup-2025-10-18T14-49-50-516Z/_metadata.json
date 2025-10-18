@@ -1,0 +1,107 @@
+{
+  "timestamp": "2025-10-18T14:49:53.564Z",
+  "backupDir": "C:\\Users\\qkrwn\\copanglast\\database-backup-2025-10-18T14-49-50-516Z",
+  "results": [
+    {
+      "tableName": "user_profiles",
+      "success": true,
+      "count": 16
+    },
+    {
+      "tableName": "slots",
+      "success": true,
+      "count": 85
+    },
+    {
+      "tableName": "slot_status",
+      "success": true,
+      "count": 445
+    },
+    {
+      "tableName": "slot_coupangvip",
+      "success": true,
+      "count": 30
+    },
+    {
+      "tableName": "slot_coupangapp",
+      "success": true,
+      "count": 10
+    },
+    {
+      "tableName": "slot_naver",
+      "success": true,
+      "count": 10
+    },
+    {
+      "tableName": "slot_place",
+      "success": true,
+      "count": 30
+    },
+    {
+      "tableName": "slot_todayhome",
+      "success": true,
+      "count": 15
+    },
+    {
+      "tableName": "slot_aliexpress",
+      "success": true,
+      "count": 10
+    },
+    {
+      "tableName": "slot_copangrank",
+      "success": true,
+      "count": 11
+    },
+    {
+      "tableName": "slot_naverrank",
+      "success": true,
+      "count": 10
+    },
+    {
+      "tableName": "slot_placerank",
+      "success": true,
+      "count": 1
+    },
+    {
+      "tableName": "settlements",
+      "success": true,
+      "count": 160
+    },
+    {
+      "tableName": "settlement_history",
+      "success": true,
+      "count": 13
+    },
+    {
+      "tableName": "settlement_requests",
+      "success": true,
+      "count": 0
+    },
+    {
+      "tableName": "notices",
+      "success": true,
+      "count": 10
+    },
+    {
+      "tableName": "distributors",
+      "success": true,
+      "count": 6
+    },
+    {
+      "tableName": "traffic",
+      "success": true,
+      "count": 701
+    },
+    {
+      "tableName": "keywords",
+      "success": true,
+      "count": 159
+    }
+  ],
+  "summary": {
+    "totalTables": 19,
+    "successful": 19,
+    "failed": 0,
+    "totalRecords": 1722
+  }
+}
