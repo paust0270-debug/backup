@@ -45,13 +45,15 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const distributor = searchParams.get('distributor');
+    const distributorFilter = searchParams.get('distributor_name'); // 총판 필터링용
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const batchId = searchParams.get('batchId');
     const id = searchParams.get('id');
 
-    console.log('정산내역 조회 요청:', {
+    console.log('📋 정산내역 조회 요청:', {
       distributor,
+      distributorFilter,
       startDate,
       endDate,
       batchId,
@@ -196,6 +198,14 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // 총판 필터링 적용
+      if (distributorFilter && distributorName !== distributorFilter) {
+        console.log(
+          `❌ 필터링: ${item.customer_id} (${distributorName} !== ${distributorFilter})`
+        );
+        continue; // 필터와 맞지 않으면 건너뛰기
+      }
+
       transformedData.push({
         id: item.id,
         sequential_number: item.sequential_number || 1,
@@ -227,6 +237,8 @@ export async function GET(request: NextRequest) {
         settlement_batch_id: item.settlement_batch_id,
       });
     }
+
+    console.log(`✅ 필터링 완료: ${transformedData.length}개 항목 반환`);
 
     return NextResponse.json({
       success: true,

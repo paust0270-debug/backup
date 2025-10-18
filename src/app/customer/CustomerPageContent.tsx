@@ -48,15 +48,47 @@ export function CustomerPageContent() {
   const [isAllSelected, setIsAllSelected] = useState(false);
   const [distributors, setDistributors] = useState<Distributor[]>([]);
 
-  // Supabase에서 고객 목록 가져오기 (최적화)
+  // Supabase에서 고객 목록 가져오기 (권한 필터링 적용)
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/users');
+
+      // 현재 사용자 정보 가져오기
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        router.push('/login');
+        return;
+      }
+
+      const user = JSON.parse(userStr);
+      console.log('👤 현재 사용자:', user.username, user.grade);
+
+      // API URL 구성 (권한에 따라 필터링)
+      let apiUrl = '/api/users';
+
+      // 총판회원: 본인 소속 고객만 조회
+      if (user.grade === '총판회원' && user.username !== 'master') {
+        apiUrl += `?distributor=${encodeURIComponent(user.distributor)}`;
+        console.log(`✅ 총판 필터 적용: ${user.distributor}`);
+      }
+      // 일반회원: 본인만 조회
+      else if (user.grade === '일반회원') {
+        apiUrl += `?username=${encodeURIComponent(user.username)}`;
+        console.log(`✅ 일반회원 필터 적용: ${user.username}`);
+      }
+      // 최고관리자: 모든 고객 조회 (필터 없음)
+      else {
+        console.log('✅ 최고관리자: 모든 고객 조회');
+      }
+
+      const response = await fetch(apiUrl);
       const result = await response.json();
 
       if (response.ok) {
-        setCustomers(result.users || []);
+        setCustomers(result.data || result.users || []);
+        console.log(
+          `✅ 고객 목록 조회 완료: ${result.data?.length || result.users?.length || 0}명`
+        );
       } else {
         console.error('고객 목록 조회 실패:', result.error);
         alert(`고객 목록을 가져올 수 없습니다: ${result.error}`);

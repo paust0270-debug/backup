@@ -31,7 +31,7 @@ export default function SettlementHistoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<Set<number>>(new Set());
   const [deletingItem, setDeletingItem] = useState<Set<number>>(new Set());
-  
+
   // 매출 통계 상태
   const [salesStats, setSalesStats] = useState({
     totalSales: 0,
@@ -40,9 +40,9 @@ export default function SettlementHistoryPage() {
     twoMonthsAgo: 0,
     thisWeek: 0,
     lastWeek: 0,
-    twoWeeksAgo: 0
+    twoWeeksAgo: 0,
   });
-  
+
   // 총판 선택 상태
   const [selectedDistributor, setSelectedDistributor] = useState<string>('all');
 
@@ -54,14 +54,31 @@ export default function SettlementHistoryPage() {
     try {
       setLoading(true);
       console.log('정산 내역 데이터 가져오는 중...');
-      
-      const response = await fetch('/api/settlement-history');
+
+      // 현재 사용자 정보 가져오기
+      const userStr = localStorage.getItem('user');
+      let apiUrl = '/api/settlement-history';
+
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        console.log('👤 현재 사용자:', user.username, user.grade);
+
+        // 총판회원: 본인 소속 고객만 조회
+        if (user.grade === '총판회원' && user.username !== 'master') {
+          apiUrl += `?distributor_name=${encodeURIComponent(user.distributor)}`;
+          console.log(`✅ 총판 필터 적용: ${user.distributor}`);
+        }
+      }
+
+      const response = await fetch(apiUrl);
       console.log('정산 내역 API 응답 상태:', response.status);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('정산 내역 API 에러 응답:', errorText);
-        throw new Error(`정산 내역 API 요청 실패: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `정산 내역 API 요청 실패: ${response.status} ${response.statusText}`
+        );
       }
 
       let result;
@@ -71,19 +88,29 @@ export default function SettlementHistoryPage() {
         const responseText = await response.text();
         console.error('정산 내역 JSON 파싱 에러:', parseError);
         console.error('정산 내역 응답 내용:', responseText);
-        throw new Error('서버에서 잘못된 응답을 받았습니다. JSON이 아닌 응답이 반환되었습니다.');
+        throw new Error(
+          '서버에서 잘못된 응답을 받았습니다. JSON이 아닌 응답이 반환되었습니다.'
+        );
       }
 
       if (result.success) {
-        console.log('정산 내역 데이터 로드 완료:', result.data?.length || 0, '개');
+        console.log(
+          '정산 내역 데이터 로드 완료:',
+          result.data?.length || 0,
+          '개'
+        );
         const settlementsData = (result.data || []).map((item: any) => ({
           ...item,
-          category: item.payment_type === 'extension' ? '연장' : 
-                   item.payment_type === 'deposit' ? '입금' : '일반'
+          category:
+            item.payment_type === 'extension'
+              ? '연장'
+              : item.payment_type === 'deposit'
+                ? '입금'
+                : '일반',
         }));
         setSettlements(settlementsData);
         calculateSalesStats(settlementsData);
-        
+
         // 테이블이 아직 생성되지 않은 경우 메시지 표시
         if (result.message) {
           console.log('정산 내역 메시지:', result.message);
@@ -94,17 +121,22 @@ export default function SettlementHistoryPage() {
       }
     } catch (err) {
       console.error('정산 내역 데이터 가져오기 에러:', err);
-      setError(`서버 오류가 발생했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
+      setError(
+        `서버 오류가 발생했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`
+      );
     } finally {
       setLoading(false);
     }
   };
 
   // 상태 업데이트 함수
-  const handleStatusChange = async (settlementId: number, newStatus: string) => {
+  const handleStatusChange = async (
+    settlementId: number,
+    newStatus: string
+  ) => {
     try {
       setUpdatingStatus(prev => new Set(prev).add(settlementId));
-      
+
       const response = await fetch(`/api/settlements/${settlementId}`, {
         method: 'PATCH',
         headers: {
@@ -115,18 +147,18 @@ export default function SettlementHistoryPage() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`상태 업데이트 실패: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `상태 업데이트 실패: ${response.status} ${response.statusText}`
+        );
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         // 로컬 상태 업데이트
-        setSettlements(prev => 
-          prev.map(item => 
-            item.id === settlementId 
-              ? { ...item, status: newStatus }
-              : item
+        setSettlements(prev =>
+          prev.map(item =>
+            item.id === settlementId ? { ...item, status: newStatus } : item
           )
         );
         alert('상태가 성공적으로 업데이트되었습니다.');
@@ -135,7 +167,9 @@ export default function SettlementHistoryPage() {
       }
     } catch (error) {
       console.error('상태 업데이트 에러:', error);
-      alert(`상태 업데이트 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+      alert(
+        `상태 업데이트 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`
+      );
     } finally {
       setUpdatingStatus(prev => {
         const newSet = new Set(prev);
@@ -153,7 +187,7 @@ export default function SettlementHistoryPage() {
 
     try {
       setDeletingItem(prev => new Set(prev).add(settlementId));
-      
+
       const response = await fetch(`/api/settlements/${settlementId}`, {
         method: 'DELETE',
       });
@@ -164,7 +198,7 @@ export default function SettlementHistoryPage() {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         // 로컬 상태에서 제거
         setSettlements(prev => prev.filter(item => item.id !== settlementId));
@@ -174,7 +208,9 @@ export default function SettlementHistoryPage() {
       }
     } catch (error) {
       console.error('삭제 에러:', error);
-      alert(`삭제 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+      alert(
+        `삭제 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`
+      );
     } finally {
       setDeletingItem(prev => {
         const newSet = new Set(prev);
@@ -187,10 +223,14 @@ export default function SettlementHistoryPage() {
   // 상세 내역 보기 함수
   const handleViewDetails = (settlement: Settlement) => {
     const category = '입금'; // 최종 페이지이므로 모두 "입금"으로 표시
-    const slotTypeDisplay = settlement.slot_type === 'mixed' ? '혼합' : settlement.slot_type;
-    const isAggregated = settlement.payment_type === 'batch' || settlement.slot_type === 'mixed';
-    
-    alert(`정산 상세 내역\n\n순번: ${settlement.sequential_number || settlement.id}\n구분: ${category}\n소속총판: ${settlement.distributor_name || '-'}\n슬롯유형: ${slotTypeDisplay}\n슬롯수: ${settlement.slot_count}개\n입금자명: ${settlement.payer_name || '-'}\n입금액: ${formatAmount(settlement.payment_amount)}\n슬롯추가일: ${formatDate(settlement.slot_addition_date)}\n아이디: ${settlement.customer_id}\n사용일수: ${settlement.usage_days}일\n메모: ${settlement.memo || '-'}\n상태: ${settlement.status}${isAggregated ? '\n\n※ 이 항목은 여러 건을 합산한 일괄 정산 내역입니다.' : ''}`);
+    const slotTypeDisplay =
+      settlement.slot_type === 'mixed' ? '혼합' : settlement.slot_type;
+    const isAggregated =
+      settlement.payment_type === 'batch' || settlement.slot_type === 'mixed';
+
+    alert(
+      `정산 상세 내역\n\n순번: ${settlement.sequential_number || settlement.id}\n구분: ${category}\n소속총판: ${settlement.distributor_name || '-'}\n슬롯유형: ${slotTypeDisplay}\n슬롯수: ${settlement.slot_count}개\n입금자명: ${settlement.payer_name || '-'}\n입금액: ${formatAmount(settlement.payment_amount)}\n슬롯추가일: ${formatDate(settlement.slot_addition_date)}\n아이디: ${settlement.customer_id}\n사용일수: ${settlement.usage_days}일\n메모: ${settlement.memo || '-'}\n상태: ${settlement.status}${isAggregated ? '\n\n※ 이 항목은 여러 건을 합산한 일괄 정산 내역입니다.' : ''}`
+    );
   };
 
   // 수정 함수
@@ -229,7 +269,9 @@ export default function SettlementHistoryPage() {
 
   // 총판 목록 가져오기 (기존 고객 목록을 총판 목록으로 변경)
   const getDistributorList = () => {
-    const distributors = new Set(settlements.map(item => item.distributor_name).filter(Boolean));
+    const distributors = new Set(
+      settlements.map(item => item.distributor_name).filter(Boolean)
+    );
     return Array.from(distributors).sort();
   };
 
@@ -239,9 +281,12 @@ export default function SettlementHistoryPage() {
   };
 
   // 필터링된 정산 내역
-  const filteredSettlements = selectedDistributor === 'all' 
-    ? settlements 
-    : settlements.filter(item => item.distributor_name === selectedDistributor);
+  const filteredSettlements =
+    selectedDistributor === 'all'
+      ? settlements
+      : settlements.filter(
+          item => item.distributor_name === selectedDistributor
+        );
 
   // 매출 통계 계산 함수
   const calculateSalesStats = (settlements: Settlement[]) => {
@@ -249,31 +294,31 @@ export default function SettlementHistoryPage() {
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     const currentDate = now.getDate();
-    
+
     // 이번주 시작일 (월요일)
     const thisWeekStart = new Date(now);
     const dayOfWeek = now.getDay();
     const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     thisWeekStart.setDate(currentDate - daysToMonday);
     thisWeekStart.setHours(0, 0, 0, 0);
-    
+
     // 지난주 시작일
     const lastWeekStart = new Date(thisWeekStart);
     lastWeekStart.setDate(thisWeekStart.getDate() - 7);
-    
+
     // 2주전 시작일
     const twoWeeksAgoStart = new Date(thisWeekStart);
     twoWeeksAgoStart.setDate(thisWeekStart.getDate() - 14);
-    
+
     // 이번달 시작일
     const thisMonthStart = new Date(currentYear, currentMonth, 1);
-    
+
     // 지난달 시작일
     const lastMonthStart = new Date(currentYear, currentMonth - 1, 1);
-    
+
     // 2달전 시작일
     const twoMonthsAgoStart = new Date(currentYear, currentMonth - 2, 1);
-    
+
     let totalSales = 0;
     let thisMonthSales = 0;
     let lastMonthSales = 0;
@@ -281,45 +326,45 @@ export default function SettlementHistoryPage() {
     let thisWeekSales = 0;
     let lastWeekSales = 0;
     let twoWeeksAgoSales = 0;
-    
+
     settlements.forEach(settlement => {
       const depositDate = new Date(settlement.slot_addition_date);
       const amount = settlement.payment_amount || 0;
-      
+
       // 총 매출
       totalSales += amount;
-      
+
       // 이번주 매출
       if (depositDate >= thisWeekStart) {
         thisWeekSales += amount;
       }
-      
+
       // 지난주 매출
       if (depositDate >= lastWeekStart && depositDate < thisWeekStart) {
         lastWeekSales += amount;
       }
-      
+
       // 2주전 매출
       if (depositDate >= twoWeeksAgoStart && depositDate < lastWeekStart) {
         twoWeeksAgoSales += amount;
       }
-      
+
       // 이번달 매출
       if (depositDate >= thisMonthStart) {
         thisMonthSales += amount;
       }
-      
+
       // 지난달 매출
       if (depositDate >= lastMonthStart && depositDate < thisMonthStart) {
         lastMonthSales += amount;
       }
-      
+
       // 2달전 매출
       if (depositDate >= twoMonthsAgoStart && depositDate < lastMonthStart) {
         twoMonthsAgoSales += amount;
       }
     });
-    
+
     setSalesStats({
       totalSales,
       thisMonth: thisMonthSales,
@@ -327,7 +372,7 @@ export default function SettlementHistoryPage() {
       twoMonthsAgo: twoMonthsAgoSales,
       thisWeek: thisWeekSales,
       lastWeek: lastWeekSales,
-      twoWeeksAgo: twoWeeksAgoSales
+      twoWeeksAgo: twoWeeksAgoSales,
     });
   };
 
@@ -338,7 +383,9 @@ export default function SettlementHistoryPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-3 text-gray-600">정산 내역을 불러오는 중...</span>
+            <span className="ml-3 text-gray-600">
+              정산 내역을 불러오는 중...
+            </span>
           </div>
         </div>
       </div>
@@ -353,12 +400,22 @@ export default function SettlementHistoryPage() {
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                <svg
+                  className="h-5 w-5 text-red-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">오류가 발생했습니다</h3>
+                <h3 className="text-sm font-medium text-red-800">
+                  오류가 발생했습니다
+                </h3>
                 <div className="mt-2 text-sm text-red-700">{error}</div>
               </div>
             </div>
@@ -379,67 +436,97 @@ export default function SettlementHistoryPage() {
               총 {filteredSettlements.length}건의 정산 내역
             </div>
           </div>
-          
+
           {/* 매출 통계 섹션 */}
           <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
             <h2 className="text-xl font-bold text-gray-900 mb-4">매출 통계</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
               {/* 총 매출 */}
               <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <div className="text-sm font-medium text-gray-500 mb-1">총 매출</div>
-                <div className="text-lg font-bold text-green-600">{formatAmount(salesStats.totalSales)}</div>
+                <div className="text-sm font-medium text-gray-500 mb-1">
+                  총 매출
+                </div>
+                <div className="text-lg font-bold text-green-600">
+                  {formatAmount(salesStats.totalSales)}
+                </div>
               </div>
-              
+
               {/* 이번달 */}
               <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <div className="text-sm font-medium text-gray-500 mb-1">이번달</div>
-                <div className="text-lg font-bold text-blue-600">{formatAmount(salesStats.thisMonth)}</div>
+                <div className="text-sm font-medium text-gray-500 mb-1">
+                  이번달
+                </div>
+                <div className="text-lg font-bold text-blue-600">
+                  {formatAmount(salesStats.thisMonth)}
+                </div>
               </div>
-              
+
               {/* 지난달 */}
               <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <div className="text-sm font-medium text-gray-500 mb-1">지난달</div>
-                <div className="text-lg font-bold text-purple-600">{formatAmount(salesStats.lastMonth)}</div>
+                <div className="text-sm font-medium text-gray-500 mb-1">
+                  지난달
+                </div>
+                <div className="text-lg font-bold text-purple-600">
+                  {formatAmount(salesStats.lastMonth)}
+                </div>
               </div>
-              
+
               {/* 2달전 */}
               <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <div className="text-sm font-medium text-gray-500 mb-1">2달전</div>
-                <div className="text-lg font-bold text-indigo-600">{formatAmount(salesStats.twoMonthsAgo)}</div>
+                <div className="text-sm font-medium text-gray-500 mb-1">
+                  2달전
+                </div>
+                <div className="text-lg font-bold text-indigo-600">
+                  {formatAmount(salesStats.twoMonthsAgo)}
+                </div>
               </div>
-              
+
               {/* 이번주 */}
               <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <div className="text-sm font-medium text-gray-500 mb-1">이번주</div>
-                <div className="text-lg font-bold text-orange-600">{formatAmount(salesStats.thisWeek)}</div>
+                <div className="text-sm font-medium text-gray-500 mb-1">
+                  이번주
+                </div>
+                <div className="text-lg font-bold text-orange-600">
+                  {formatAmount(salesStats.thisWeek)}
+                </div>
               </div>
-              
+
               {/* 지난주 */}
               <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <div className="text-sm font-medium text-gray-500 mb-1">지난주</div>
-                <div className="text-lg font-bold text-red-600">{formatAmount(salesStats.lastWeek)}</div>
+                <div className="text-sm font-medium text-gray-500 mb-1">
+                  지난주
+                </div>
+                <div className="text-lg font-bold text-red-600">
+                  {formatAmount(salesStats.lastWeek)}
+                </div>
               </div>
-              
+
               {/* 2주전 */}
               <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <div className="text-sm font-medium text-gray-500 mb-1">2주전</div>
-                <div className="text-lg font-bold text-pink-600">{formatAmount(salesStats.twoWeeksAgo)}</div>
+                <div className="text-sm font-medium text-gray-500 mb-1">
+                  2주전
+                </div>
+                <div className="text-lg font-bold text-pink-600">
+                  {formatAmount(salesStats.twoWeeksAgo)}
+                </div>
               </div>
             </div>
           </div>
-          
+
           {/* 총판 선택 및 정산 요청 섹션 */}
           <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex items-center gap-4">
-                <label className="text-sm font-medium text-gray-700">총판 선택:</label>
+                <label className="text-sm font-medium text-gray-700">
+                  총판 선택:
+                </label>
                 <select
                   value={selectedDistributor}
-                  onChange={(e) => setSelectedDistributor(e.target.value)}
+                  onChange={e => setSelectedDistributor(e.target.value)}
                   className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="all">전체 총판</option>
-                  {getDistributorList().map((distributor) => (
+                  {getDistributorList().map(distributor => (
                     <option key={distributor} value={distributor}>
                       {distributor}
                     </option>
@@ -454,33 +541,64 @@ export default function SettlementHistoryPage() {
               </button>
             </div>
           </div>
-          
+
           {/* 테이블 */}
           <div className="overflow-x-auto">
             <table className="min-w-full bg-white border border-gray-200 rounded-lg">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">순번</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">구분</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">소속총판</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">아이디</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">슬롯추가일</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">슬롯유형</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">슬롯수</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">입금자명</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">입금액</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">사용일수</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">메모</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">상태</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">작업</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                    순번
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                    구분
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                    소속총판
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                    아이디
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                    슬롯추가일
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                    슬롯유형
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                    슬롯수
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                    입금자명
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                    입금액
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                    사용일수
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                    메모
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                    상태
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                    작업
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredSettlements.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors duration-150">
+                  <tr
+                    key={item.id}
+                    className="hover:bg-gray-50 transition-colors duration-150"
+                  >
                     {/* 순번 */}
                     <td className="px-4 py-3 text-sm text-gray-900 border-b border-gray-100">
-                      <span className="font-medium">{item.sequential_number || item.id}</span>
+                      <span className="font-medium">
+                        {item.sequential_number || item.id}
+                      </span>
                     </td>
                     {/* 구분 - 최종 페이지이므로 모두 "입금"으로 표시 */}
                     <td className="px-4 py-3 text-sm text-gray-900 border-b border-gray-100">
@@ -490,7 +608,9 @@ export default function SettlementHistoryPage() {
                     </td>
                     {/* 소속총판 */}
                     <td className="px-4 py-3 text-sm text-gray-900 border-b border-gray-100">
-                      <span className="font-medium">{item.distributor_name || '-'}</span>
+                      <span className="font-medium">
+                        {item.distributor_name || '-'}
+                      </span>
                     </td>
                     {/* 아이디 */}
                     <td className="px-4 py-3 text-sm text-gray-900 border-b border-gray-100">
@@ -502,11 +622,13 @@ export default function SettlementHistoryPage() {
                     </td>
                     {/* 슬롯유형 */}
                     <td className="px-4 py-3 text-sm text-gray-900 border-b border-gray-100">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        item.slot_type === 'mixed' 
-                          ? 'bg-purple-100 text-purple-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          item.slot_type === 'mixed'
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}
+                      >
                         {item.slot_type === 'mixed' ? '혼합' : item.slot_type}
                       </span>
                     </td>
@@ -534,7 +656,10 @@ export default function SettlementHistoryPage() {
                     </td>
                     {/* 메모 */}
                     <td className="px-4 py-3 text-sm text-gray-900 border-b border-gray-100">
-                      <span className="max-w-xs truncate block" title={item.memo || ''}>
+                      <span
+                        className="max-w-xs truncate block"
+                        title={item.memo || ''}
+                      >
                         {item.memo || '-'}
                       </span>
                     </td>
@@ -542,11 +667,13 @@ export default function SettlementHistoryPage() {
                     <td className="px-4 py-3 text-sm text-gray-900 border-b border-gray-100">
                       <select
                         value={item.status || '승인대기'}
-                        onChange={(e) => handleStatusChange(item.id, e.target.value)}
+                        onChange={e =>
+                          handleStatusChange(item.id, e.target.value)
+                        }
                         disabled={updatingStatus.has(item.id)}
                         className={`text-xs px-2 py-1 rounded border ${
-                          updatingStatus.has(item.id) 
-                            ? 'bg-gray-100 text-gray-500 cursor-not-allowed' 
+                          updatingStatus.has(item.id)
+                            ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                             : 'bg-white border-gray-300 hover:border-gray-400'
                         }`}
                       >
@@ -604,16 +731,27 @@ export default function SettlementHistoryPage() {
           {filteredSettlements.length === 0 && (
             <div className="text-center py-12">
               <div className="text-gray-400 mb-4">
-                <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <svg
+                  className="mx-auto h-12 w-12"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">정산 내역이 없습니다</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                정산 내역이 없습니다
+              </h3>
               <p className="text-gray-500">
-                {selectedDistributor === 'all' 
-                  ? '아직 완료된 정산 내역이 없습니다.' 
-                  : `선택한 총판(${selectedDistributor})의 정산 내역이 없습니다.`
-                }
+                {selectedDistributor === 'all'
+                  ? '아직 완료된 정산 내역이 없습니다.'
+                  : `선택한 총판(${selectedDistributor})의 정산 내역이 없습니다.`}
               </p>
             </div>
           )}
@@ -622,4 +760,3 @@ export default function SettlementHistoryPage() {
     </div>
   );
 }
-

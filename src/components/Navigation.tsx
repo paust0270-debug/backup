@@ -3,25 +3,53 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { getNavigationItems, UserPermissions } from '@/lib/auth';
 
 export default function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserPermissions | null>(null);
+  const [navigationItems, setNavigationItems] = useState<any[]>([]);
+  const [isClient, setIsClient] = useState(false);
 
-  // 로그인 상태 확인
+  // 클라이언트 사이드에서만 실행
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
+    setIsClient(true);
   }, []);
+
+  // 사용자 정보 로드
+  useEffect(() => {
+    if (!isClient) return;
+
+    try {
+      const userStr = localStorage.getItem('user');
+      console.log('📋 localStorage user:', userStr ? '있음' : '없음');
+
+      if (userStr) {
+        const userInfo = JSON.parse(userStr);
+        console.log('👤 사용자 정보:', userInfo.username, userInfo.grade);
+
+        setUser(userInfo);
+
+        try {
+          const filteredItems = getNavigationItems(userInfo);
+          console.log('📌 네비게이션 아이템 수:', filteredItems.length);
+          setNavigationItems(filteredItems);
+        } catch (navError) {
+          console.error('❌ 네비게이션 아이템 생성 오류:', navError);
+          // 에러가 발생해도 사용자 정보는 유지
+          setNavigationItems([]);
+        }
+      }
+    } catch (error) {
+      console.error('❌ 사용자 정보 로드 오류:', error);
+    }
+  }, [isClient]);
 
   // 로그아웃 함수
   const handleLogout = async () => {
     try {
-      // 서버에 로그아웃 요청
       await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
@@ -29,96 +57,73 @@ export default function Navigation() {
     } catch (error) {
       console.error('로그아웃 API 호출 실패:', error);
     } finally {
-      // 클라이언트 상태 정리
       localStorage.removeItem('user');
+      localStorage.removeItem('sessionTimestamp');
       setUser(null);
       router.push('/login');
     }
   };
 
-  const navigationItems = [
-    {
-      name: '무료 서비스',
-      href: '/dashboard',
-      subItems: [
-        { name: '쿠팡순위체크', href: '/coupangapp/copangrank' },
-        { name: 'N쇼핑순위체크', href: '/coupangapp/naverrank' },
-        { name: 'N플레이스순위체크', href: '/coupangapp/placerank' },
-      ],
-    },
-    {
-      name: '메인서비스',
-      href: '/coupangapp/add',
-      subItems: [
-        { name: '쿠팡', href: '/coupangapp/add' },
-        { name: '쿠팡VIP', href: '/coupangapp/vip' },
-        { name: '쿠팡APP', href: '/coupangapp/app' },
-        { name: '네이버쇼핑', href: '/coupangapp/naver' },
-        { name: '플레이스', href: '/coupangapp/place' },
-        { name: '오늘의집', href: '/coupangapp/todayhome' },
-        { name: '알리', href: '/coupangapp/aliexpress' },
-      ],
-    },
-    {
-      name: '고객관리',
-      href: '/customer',
-      subItems: [
-        { name: '고객관리', href: '/customer' },
-        { name: '슬롯관리', href: '/admin/slots' },
-        { name: '슬롯현황', href: '/slot-status' },
-      ],
-    },
-    {
-      name: '정산관리',
-      href: '/settlement/history',
-      subItems: [
-        { name: '정산내역', href: '/settlement/history' },
-        { name: '정산대기', href: '/settlement' },
-        { name: '미정산내역', href: '/settlement/unsettled' },
-      ],
-    },
-    {
-      name: '총판관리',
-      href: '/distributor',
-      subItems: [
-        { name: '총판 대시보드', href: '/distributor' },
-        { name: '총판관리', href: '/distributor-add' },
-        { name: '총판추가', href: '/distributor-add/add' },
-      ],
-    },
-    {
-      name: '작업관리',
-      href: '/ranking-status',
-      subItems: [
-        { name: '순위체크현황', href: '/ranking-status' },
-        { name: '트래픽현황', href: '/traffic-status' },
-      ],
-    },
-    {
-      name: '공지사항',
-      href: '/notices',
-      subItems: [],
-    },
-  ];
+  // 클라이언트 마운트 전에는 빈 네비게이션 렌더링
+  if (!isClient) {
+    return (
+      <nav className="bg-white shadow-lg border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+          <div className="flex items-center justify-between h-14 sm:h-16">
+            <div className="flex-shrink-0">
+              <div className="flex items-center">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center mr-2 sm:mr-3 shadow-lg">
+                  <span className="text-white font-bold text-base sm:text-lg lg:text-xl">
+                    AD
+                  </span>
+                </div>
+                <span className="text-base sm:text-lg lg:text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  애드팡팡
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-400">로딩 중...</span>
+            </div>
+          </div>
+        </div>
+      </nav>
+    );
+  }
+
+  // 로그인 페이지에서는 네비게이션 숨김
+  if (pathname === '/login') {
+    return null;
+  }
+
+  // 사용자 정보가 없으면 네비게이션 숨김
+  if (!user) {
+    return null;
+  }
 
   // 현재 활성화된 메인 탭 찾기
   const activeMainTab = navigationItems.find(
     item =>
       pathname.startsWith(item.href) ||
-      item.subItems.some(sub => pathname.startsWith(sub.href))
+      (item.subItems &&
+        item.subItems.some((sub: any) => pathname.startsWith(sub.href)))
   );
 
   return (
     <nav className="bg-white shadow-lg border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="flex items-center justify-between h-16">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="flex items-center justify-between h-14 sm:h-16">
           {/* 왼쪽 로고 */}
           <div className="flex-shrink-0">
             <Link href="/dashboard" className="flex items-center">
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center mr-3">
-                <span className="text-white font-bold text-xl">C</span>
+              <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center mr-2 sm:mr-3 shadow-lg hover:shadow-xl transition-shadow duration-200">
+                <span className="text-white font-bold text-base sm:text-lg lg:text-xl">
+                  AD
+                </span>
               </div>
-              <span className="text-xl font-bold text-gray-900">애드팡팡</span>
+              <span className="text-base sm:text-lg lg:text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                애드팡팡
+              </span>
             </Link>
           </div>
 
@@ -126,7 +131,7 @@ export default function Navigation() {
           <div className="hidden lg:flex items-center space-x-1">
             {navigationItems.map(item => {
               const isActive = activeMainTab === item;
-              const hasSubItems = item.subItems.length > 0;
+              const hasSubItems = item.subItems && item.subItems.length > 0;
 
               return (
                 <div
@@ -149,7 +154,7 @@ export default function Navigation() {
                   {/* 드롭다운 서브메뉴 */}
                   {hasSubItems && hoveredItem === item.name && (
                     <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
-                      {item.subItems.map(subItem => {
+                      {item.subItems.map((subItem: any) => {
                         const isSubActive = pathname.startsWith(subItem.href);
                         return (
                           <Link
@@ -173,35 +178,21 @@ export default function Navigation() {
           </div>
 
           {/* 우측 사용자 영역 */}
-          <div className="flex items-center space-x-4">
-            {user ? (
-              <div className="flex items-center space-x-3">
-                <span className="text-sm text-gray-600">
-                  {user.name} ({user.grade})
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="text-gray-600 hover:text-red-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
-                >
-                  로그아웃
-                </button>
-              </div>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
-                >
-                  로그인
-                </Link>
-                <Link
-                  href="/signup"
-                  className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200"
-                >
-                  회원가입
-                </Link>
-              </>
-            )}
+          <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">
+                {user.name} ({user.grade})
+              </span>
+              <span className="text-xs text-gray-600 sm:hidden">
+                {user.name}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="text-gray-600 hover:text-red-600 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition-colors duration-200"
+              >
+                로그아웃
+              </button>
+            </div>
           </div>
         </div>
       </div>

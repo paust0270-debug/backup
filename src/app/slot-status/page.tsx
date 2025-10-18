@@ -204,6 +204,21 @@ function SlotStatusPageContent() {
       }
 
       // 전체 슬롯 현황 조회 (기존 로직)
+      // 현재 사용자 권한 확인
+      const userStr = localStorage.getItem('user');
+      let userDistributor = null;
+
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        console.log('👤 현재 사용자:', user.username, user.grade);
+
+        // 총판회원: 본인 소속 고객만 조회
+        if (user.grade === '총판회원' && user.username !== 'master') {
+          userDistributor = user.distributor;
+          console.log(`✅ 총판 필터 적용: ${userDistributor}`);
+        }
+      }
+
       // 모든 슬롯 타입의 API를 호출하여 데이터 통합
       const apiCalls = [];
 
@@ -211,6 +226,8 @@ function SlotStatusPageContent() {
       let coupangApiUrl = '/api/slot-status';
       if (isFilteredByCustomer && filteredCustomerInfo) {
         coupangApiUrl += `?type=slot_status&customerId=${filteredCustomerInfo.id}&username=${filteredCustomerInfo.username}&name=${encodeURIComponent(filteredCustomerInfo.name)}`;
+      } else if (userDistributor) {
+        coupangApiUrl += `?distributor=${encodeURIComponent(userDistributor)}`;
       }
       apiCalls.push(fetch(coupangApiUrl).then(res => res.json()));
 
@@ -218,6 +235,8 @@ function SlotStatusPageContent() {
       let coupangVipApiUrl = '/api/slot-coupangvip';
       if (isFilteredByCustomer && filteredCustomerInfo) {
         coupangVipApiUrl += `?type=slot_status&customerId=${filteredCustomerInfo.id}&username=${filteredCustomerInfo.username}&name=${encodeURIComponent(filteredCustomerInfo.name)}`;
+      } else if (userDistributor) {
+        coupangVipApiUrl += `?distributor=${encodeURIComponent(userDistributor)}`;
       }
       apiCalls.push(fetch(coupangVipApiUrl).then(res => res.json()));
 
@@ -225,6 +244,8 @@ function SlotStatusPageContent() {
       let coupangAppApiUrl = '/api/slot-coupangapp';
       if (isFilteredByCustomer && filteredCustomerInfo) {
         coupangAppApiUrl += `?type=slot_status&customerId=${filteredCustomerInfo.id}&username=${filteredCustomerInfo.username}&name=${encodeURIComponent(filteredCustomerInfo.name)}`;
+      } else if (userDistributor) {
+        coupangAppApiUrl += `?distributor=${encodeURIComponent(userDistributor)}`;
       }
       apiCalls.push(fetch(coupangAppApiUrl).then(res => res.json()));
 
@@ -232,6 +253,8 @@ function SlotStatusPageContent() {
       let naverApiUrl = '/api/slot-naver';
       if (isFilteredByCustomer && filteredCustomerInfo) {
         naverApiUrl += `?type=slot_status&customerId=${filteredCustomerInfo.id}&username=${filteredCustomerInfo.username}&name=${encodeURIComponent(filteredCustomerInfo.name)}`;
+      } else if (userDistributor) {
+        naverApiUrl += `?distributor=${encodeURIComponent(userDistributor)}`;
       }
       apiCalls.push(fetch(naverApiUrl).then(res => res.json()));
 
@@ -239,6 +262,8 @@ function SlotStatusPageContent() {
       let placeApiUrl = '/api/slot-place';
       if (isFilteredByCustomer && filteredCustomerInfo) {
         placeApiUrl += `?type=slot_status&customerId=${filteredCustomerInfo.id}&username=${filteredCustomerInfo.username}&name=${encodeURIComponent(filteredCustomerInfo.name)}`;
+      } else if (userDistributor) {
+        placeApiUrl += `?distributor=${encodeURIComponent(userDistributor)}`;
       }
       apiCalls.push(fetch(placeApiUrl).then(res => res.json()));
 
@@ -246,6 +271,8 @@ function SlotStatusPageContent() {
       let todayhomeApiUrl = '/api/slot-todayhome';
       if (isFilteredByCustomer && filteredCustomerInfo) {
         todayhomeApiUrl += `?type=slot_status&customerId=${filteredCustomerInfo.id}&username=${filteredCustomerInfo.username}&name=${encodeURIComponent(filteredCustomerInfo.name)}`;
+      } else if (userDistributor) {
+        todayhomeApiUrl += `?distributor=${encodeURIComponent(userDistributor)}`;
       }
       apiCalls.push(fetch(todayhomeApiUrl).then(res => res.json()));
 
@@ -253,6 +280,8 @@ function SlotStatusPageContent() {
       let aliexpressApiUrl = '/api/slot-aliexpress';
       if (isFilteredByCustomer && filteredCustomerInfo) {
         aliexpressApiUrl += `?type=slot_status&customerId=${filteredCustomerInfo.id}&username=${filteredCustomerInfo.username}&name=${encodeURIComponent(filteredCustomerInfo.name)}`;
+      } else if (userDistributor) {
+        aliexpressApiUrl += `?distributor=${encodeURIComponent(userDistributor)}`;
       }
       apiCalls.push(fetch(aliexpressApiUrl).then(res => res.json()));
 
@@ -260,6 +289,8 @@ function SlotStatusPageContent() {
       let copangrankApiUrl = '/api/slot-copangrank';
       if (isFilteredByCustomer && filteredCustomerInfo) {
         copangrankApiUrl += `?type=slot_status&customerId=${filteredCustomerInfo.id}&username=${filteredCustomerInfo.username}&name=${encodeURIComponent(filteredCustomerInfo.name)}`;
+      } else if (userDistributor) {
+        copangrankApiUrl += `?distributor=${encodeURIComponent(userDistributor)}`;
       }
       apiCalls.push(fetch(copangrankApiUrl).then(res => res.json()));
 
@@ -267,6 +298,8 @@ function SlotStatusPageContent() {
       let naverrankApiUrl = '/api/slot-naverrank';
       if (isFilteredByCustomer && filteredCustomerInfo) {
         naverrankApiUrl += `?type=slot_status&customerId=${filteredCustomerInfo.id}&username=${filteredCustomerInfo.username}&name=${encodeURIComponent(filteredCustomerInfo.name)}`;
+      } else if (userDistributor) {
+        naverrankApiUrl += `?distributor=${encodeURIComponent(userDistributor)}`;
       }
       apiCalls.push(fetch(naverrankApiUrl).then(res => res.json()));
 
@@ -274,6 +307,8 @@ function SlotStatusPageContent() {
       let placerankApiUrl = '/api/slot-placerank';
       if (isFilteredByCustomer && filteredCustomerInfo) {
         placerankApiUrl += `?type=slot_status&customerId=${filteredCustomerInfo.id}&username=${filteredCustomerInfo.username}&name=${encodeURIComponent(filteredCustomerInfo.name)}`;
+      } else if (userDistributor) {
+        placerankApiUrl += `?distributor=${encodeURIComponent(userDistributor)}`;
       }
       apiCalls.push(fetch(placerankApiUrl).then(res => res.json()));
 
@@ -338,9 +373,50 @@ function SlotStatusPageContent() {
 
       console.log('통합된 슬롯 데이터:', allSlotData);
 
-      // 특정 고객 필터링 시 슬롯 카운팅 정보 저장
-      if (isFilteredByCustomer && allSlotData && allSlotData.length > 0) {
-        setSlotData(allSlotData);
+      // 🔥 각 슬롯의 distributor 정보를 user_profiles에서 조회하여 업데이트
+      if (allSlotData && allSlotData.length > 0) {
+        console.log('🔍 distributor 정보 조회 시작...');
+
+        // 고유한 customerId 목록 추출
+        const uniqueCustomerIds = [
+          ...new Set(allSlotData.map(slot => slot.customerId)),
+        ];
+        console.log('고유한 고객 수:', uniqueCustomerIds.length);
+
+        // 각 고객의 distributor 정보 조회
+        const distributorMap = new Map();
+
+        for (const customerId of uniqueCustomerIds) {
+          try {
+            const response = await fetch(
+              `/api/users?username=${encodeURIComponent(customerId)}`
+            );
+            const result = await response.json();
+
+            if (result.success && result.data && result.data.length > 0) {
+              const distributor = result.data[0].distributor || '-';
+              distributorMap.set(customerId, distributor);
+              console.log(`✅ ${customerId} → ${distributor}`);
+            } else {
+              distributorMap.set(customerId, '-');
+              console.log(`⚠️  ${customerId} → distributor 정보 없음`);
+            }
+          } catch (error) {
+            console.error(`❌ ${customerId} distributor 조회 오류:`, error);
+            distributorMap.set(customerId, '-');
+          }
+        }
+
+        // 슬롯 데이터에 distributor 정보 매핑
+        const updatedSlotData = allSlotData.map(slot => ({
+          ...slot,
+          userGroup: distributorMap.get(slot.customerId) || '-',
+        }));
+
+        console.log('✅ distributor 매핑 완료');
+        console.log('첫 번째 슬롯의 userGroup:', updatedSlotData[0]?.userGroup);
+
+        setSlotData(updatedSlotData);
       } else {
         setSlotData(allSlotData);
       }

@@ -28,7 +28,9 @@ export default function UnsettledPage() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [requestingSlots, setRequestingSlots] = useState<Set<number>>(new Set());
+  const [requestingSlots, setRequestingSlots] = useState<Set<number>>(
+    new Set()
+  );
   const [bulkRequesting, setBulkRequesting] = useState(false);
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [editPaymentAmount, setEditPaymentAmount] = useState<string>('');
@@ -42,14 +44,31 @@ export default function UnsettledPage() {
     try {
       setLoading(true);
       console.log('미정산 내역 데이터 가져오는 중...');
-      
-      const response = await fetch('/api/settlements/unsettled');
+
+      // 현재 사용자 정보 가져오기
+      const userStr = localStorage.getItem('user');
+      let apiUrl = '/api/settlements/unsettled';
+
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        console.log('👤 현재 사용자:', user.username, user.grade);
+
+        // 총판회원: 본인 소속 고객만 조회
+        if (user.grade === '총판회원' && user.username !== 'master') {
+          apiUrl += `?distributor_name=${encodeURIComponent(user.distributor)}`;
+          console.log(`✅ 총판 필터 적용: ${user.distributor}`);
+        }
+      }
+
+      const response = await fetch(apiUrl);
       console.log('미정산 API 응답 상태:', response.status);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('미정산 API 에러 응답:', errorText);
-        throw new Error(`미정산 API 요청 실패: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `미정산 API 요청 실패: ${response.status} ${response.statusText}`
+        );
       }
 
       let result;
@@ -59,16 +78,19 @@ export default function UnsettledPage() {
         const responseText = await response.text();
         console.error('슬롯 JSON 파싱 에러:', parseError);
         console.error('슬롯 응답 내용:', responseText);
-        throw new Error('서버에서 잘못된 응답을 받았습니다. JSON이 아닌 응답이 반환되었습니다.');
+        throw new Error(
+          '서버에서 잘못된 응답을 받았습니다. JSON이 아닌 응답이 반환되었습니다.'
+        );
       }
 
       if (result.success) {
         console.log('슬롯 데이터 로드 완료:', result.data?.length || 0, '개');
         // 정산 완료된 슬롯들을 제외하고 필터링
-        const filteredSlots = (result.data || []).filter((slot: Slot) => 
-          slot.status !== 'completed' && 
-          slot.status !== 'requested' &&
-          slot.status !== 'inactive' // 정산 완료된 슬롯도 제외
+        const filteredSlots = (result.data || []).filter(
+          (slot: Slot) =>
+            slot.status !== 'completed' &&
+            slot.status !== 'requested' &&
+            slot.status !== 'inactive' // 정산 완료된 슬롯도 제외
         );
         console.log('필터링된 슬롯 데이터:', filteredSlots.length, '개');
         setSlots(filteredSlots);
@@ -78,7 +100,9 @@ export default function UnsettledPage() {
       }
     } catch (err) {
       console.error('슬롯 데이터 가져오기 에러:', err);
-      setError(`서버 오류가 발생했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
+      setError(
+        `서버 오류가 발생했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`
+      );
     } finally {
       setLoading(false);
     }
@@ -87,18 +111,16 @@ export default function UnsettledPage() {
   // 슬롯 타입을 한글로 변환
   const getSlotTypeKorean = (slotType: string) => {
     const typeMap: { [key: string]: string } = {
-      'coupang': '쿠팡',
+      coupang: '쿠팡',
       'coupang-vip': '쿠팡 VIP',
       'coupang-app': '쿠팡 앱',
       'naver-shopping': '네이버 쇼핑',
-      'place': '플레이스',
+      place: '플레이스',
       'today-house': '오늘의집',
-      'aliexpress': '알리익스프레스'
+      aliexpress: '알리익스프레스',
     };
     return typeMap[slotType] || slotType;
   };
-
-
 
   // 날짜 포맷팅
   const formatDate = (dateString: string) => {
@@ -113,8 +135,12 @@ export default function UnsettledPage() {
 
   // 수정 버튼 클릭 핸들러
   const handleEdit = (slot: Slot) => {
-    console.log('수정 버튼 클릭:', { id: slot.id, type: slot.type, customer_id: slot.customer_id });
-    
+    console.log('수정 버튼 클릭:', {
+      id: slot.id,
+      type: slot.type,
+      customer_id: slot.customer_id,
+    });
+
     if (slot.type === 'extension') {
       // 연장 내역의 경우 인라인 편집 모드로 전환
       console.log('연장 내역 편집 모드로 전환');
@@ -128,7 +154,9 @@ export default function UnsettledPage() {
     } else {
       // 일반 슬롯의 경우 기존 방식
       console.log('일반 슬롯 - 페이지 이동');
-      router.push(`/settlement/edit?slotId=${slot.id}&customerId=${slot.customer_id}&username=${slot.customer_id}&name=${encodeURIComponent(slot.customer_name)}`);
+      router.push(
+        `/settlement/edit?slotId=${slot.id}&customerId=${slot.customer_id}&username=${slot.customer_id}&name=${encodeURIComponent(slot.customer_name)}`
+      );
     }
   };
 
@@ -140,7 +168,11 @@ export default function UnsettledPage() {
     }
 
     const settlementId = slotId.replace('settlement_', ''); // settlement_ 접두사 제거
-    console.log('연장 내역 수정 요청:', { slotId, settlementId, paymentAmount: editPaymentAmount });
+    console.log('연장 내역 수정 요청:', {
+      slotId,
+      settlementId,
+      paymentAmount: editPaymentAmount,
+    });
 
     try {
       const response = await fetch('/api/settlements/update-extension', {
@@ -150,7 +182,7 @@ export default function UnsettledPage() {
         },
         body: JSON.stringify({
           settlementId: settlementId,
-          paymentAmount: parseInt(editPaymentAmount)
+          paymentAmount: parseInt(editPaymentAmount),
         }),
       });
 
@@ -175,7 +207,10 @@ export default function UnsettledPage() {
       return;
     }
 
-    console.log('입금 내역 수정 요청:', { slotId, paymentAmount: editPaymentAmount });
+    console.log('입금 내역 수정 요청:', {
+      slotId,
+      paymentAmount: editPaymentAmount,
+    });
 
     try {
       // 입금 내역의 경우 슬롯 ID를 그대로 사용
@@ -186,7 +221,7 @@ export default function UnsettledPage() {
         },
         body: JSON.stringify({
           slotId: slotId,
-          paymentAmount: parseInt(editPaymentAmount)
+          paymentAmount: parseInt(editPaymentAmount),
         }),
       });
 
@@ -210,17 +245,19 @@ export default function UnsettledPage() {
     setEditPaymentAmount('');
   };
 
-    // 전체 정산요청 버튼 클릭 핸들러
+  // 전체 정산요청 버튼 클릭 핸들러
   const handleBulkSettlementRequest = async () => {
     // 정산요청 가능한 슬롯들만 필터링 (status가 'requested'가 아닌 것들)
     const availableSlots = slots.filter(slot => slot.status !== 'requested');
-    
+
     if (availableSlots.length === 0) {
       alert('정산요청 가능한 슬롯이 없습니다.');
       return;
     }
 
-    if (!confirm(`총 ${availableSlots.length}개의 슬롯을 정산요청하시겠습니까?`)) {
+    if (
+      !confirm(`총 ${availableSlots.length}개의 슬롯을 정산요청하시겠습니까?`)
+    ) {
       return;
     }
 
@@ -230,9 +267,9 @@ export default function UnsettledPage() {
       // 정산요청 데이터 준비 (settlements 테이블의 ID만 전송)
       console.log('🔍 전체 정산요청 데이터 준비:', availableSlots.length, '개');
       console.log('첫 번째 슬롯 데이터:', availableSlots[0]);
-      
-      const settlementData = availableSlots.map((slot) => ({
-        id: slot.id // settlements 테이블의 ID만 전송
+
+      const settlementData = availableSlots.map(slot => ({
+        id: slot.id, // settlements 테이블의 ID만 전송
       }));
 
       console.log('🔍 생성된 정산요청 데이터:', settlementData);
@@ -252,7 +289,9 @@ export default function UnsettledPage() {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('API 에러 응답:', errorText);
-        throw new Error(`API 요청 실패: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `API 요청 실패: ${response.status} ${response.statusText}`
+        );
       }
 
       // JSON 파싱 시도
@@ -263,7 +302,9 @@ export default function UnsettledPage() {
         const responseText = await response.text();
         console.error('JSON 파싱 에러:', parseError);
         console.error('응답 내용:', responseText);
-        throw new Error('서버에서 잘못된 응답을 받았습니다. JSON이 아닌 응답이 반환되었습니다.');
+        throw new Error(
+          '서버에서 잘못된 응답을 받았습니다. JSON이 아닌 응답이 반환되었습니다.'
+        );
       }
 
       if (result.success) {
@@ -273,10 +314,11 @@ export default function UnsettledPage() {
       } else {
         alert(result.error || '정산요청 저장에 실패했습니다.');
       }
-      
     } catch (err) {
       console.error('정산요청 에러:', err);
-      alert(`서버 오류가 발생했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
+      alert(
+        `서버 오류가 발생했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`
+      );
     } finally {
       setBulkRequesting(false);
     }
@@ -310,19 +352,19 @@ export default function UnsettledPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="bg-white rounded-lg shadow-md p-6">
           <h1 className="text-2xl font-bold mb-6">미정산 내역</h1>
-          
+
           {/* 필터 */}
           <div className="mb-6 flex items-center space-x-4">
             <select
               value={selectedDistributor}
-              onChange={(e) => setSelectedDistributor(e.target.value)}
+              onChange={e => setSelectedDistributor(e.target.value)}
               className="border border-gray-300 rounded px-3 py-2"
             >
               <option value="">전체 총판</option>
               <option value="총판A">총판A</option>
               <option value="총판B">총판B</option>
             </select>
-            
+
             <button
               onClick={handleBulkSettlementRequest}
               disabled={bulkRequesting}
@@ -341,24 +383,50 @@ export default function UnsettledPage() {
             <table className="min-w-full bg-white border border-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">순번</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">구분</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">소속총판</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">아이디</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">슬롯추가일</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">슬롯유형</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">슬롯수</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">입금자명</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">입금액</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">사용일수</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">메모</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">수정</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                    순번
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                    구분
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                    소속총판
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                    아이디
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                    슬롯추가일
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                    슬롯유형
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                    슬롯수
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                    입금자명
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                    입금액
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                    사용일수
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                    메모
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                    수정
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {slots.map((slot, index) => (
                   <tr key={slot.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900 border-b">{index + 1}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 border-b">
+                      {index + 1}
+                    </td>
                     <td className="px-4 py-3 text-sm border-b">
                       {slot.type === 'extension' ? (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
@@ -374,39 +442,59 @@ export default function UnsettledPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 border-b">{slot.distributor_name || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 border-b">{slot.customer_id}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 border-b">{formatDate(slot.created_at)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 border-b">{getSlotTypeKorean(slot.slot_type)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 border-b">{slot.slot_count}개</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 border-b">
+                      {slot.distributor_name || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 border-b">
+                      {slot.customer_id}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 border-b">
+                      {formatDate(slot.created_at)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 border-b">
+                      {getSlotTypeKorean(slot.slot_type)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 border-b">
+                      {slot.slot_count}개
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-900 border-b">
                       {slot.payer_name || '-'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900 border-b">
-                      {(slot.type === 'extension' || slot.type === 'deposit') && editingSlotId === slot.id.toString() ? (
+                      {(slot.type === 'extension' || slot.type === 'deposit') &&
+                      editingSlotId === slot.id.toString() ? (
                         <div className="flex items-center space-x-2">
                           <input
                             type="number"
                             value={editPaymentAmount}
-                            onChange={(e) => setEditPaymentAmount(e.target.value)}
+                            onChange={e => setEditPaymentAmount(e.target.value)}
                             className="w-24 px-2 py-1 border border-gray-300 rounded text-xs"
                             placeholder="입금액"
                           />
                           <span className="text-xs text-gray-500">원</span>
                         </div>
+                      ) : slot.payment_amount ? (
+                        formatAmount(slot.payment_amount)
                       ) : (
-                        slot.payment_amount ? formatAmount(slot.payment_amount) : '미입금'
+                        '미입금'
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900 border-b">
                       {slot.usage_days ? `${slot.usage_days}일` : '-'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 border-b">{slot.memo || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-900 border-b">
-                      {(slot.type === 'extension' || slot.type === 'deposit') && editingSlotId === slot.id.toString() ? (
+                      {slot.memo || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 border-b">
+                      {(slot.type === 'extension' || slot.type === 'deposit') &&
+                      editingSlotId === slot.id.toString() ? (
                         <div className="flex space-x-1">
                           <button
-                            onClick={() => slot.type === 'extension' ? handleUpdateExtension(slot.id.toString()) : handleUpdateDeposit(slot.id.toString())}
+                            onClick={() =>
+                              slot.type === 'extension'
+                                ? handleUpdateExtension(slot.id.toString())
+                                : handleUpdateDeposit(slot.id.toString())
+                            }
                             className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs"
                           >
                             저장

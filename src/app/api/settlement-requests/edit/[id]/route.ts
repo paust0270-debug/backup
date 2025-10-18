@@ -139,9 +139,10 @@ export async function GET(
 
     if (!foundMatch) {
       console.log(
-        '⚠️ 일치하는 settlements 조합을 찾지 못했습니다. 최근 2개만 반환합니다.'
+        '⚠️ 일치하는 settlements 조합을 찾지 못했습니다. 모든 settlements를 반환합니다.'
       );
-      filteredSettlements = filteredSettlements.slice(-2);
+      // 일치하는 조합을 찾지 못한 경우, 모든 settlements 반환 (최근 2개로 제한하지 않음)
+      // filteredSettlements는 이미 모든 데이터를 포함하고 있음
     }
 
     console.log(`최종 반환할 settlements: ${filteredSettlements.length}개`);

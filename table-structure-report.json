@@ -1,0 +1,85 @@
+{
+  "total": 22,
+  "existing": 22,
+  "withDistributor": 17,
+  "withoutDistributor": 5,
+  "missing": 0,
+  "tablesWithDistributor": [
+    {
+      "name": "slots",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "keywords",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "traffic",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "slot_works",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "slot_status",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "slot_coupangvip",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "slot_coupangapp",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "slot_naver",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "slot_place",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "slot_todayhome",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "slot_aliexpress",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "slot_copangrank",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "slot_naverrank",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "slot_placerank",
+      "columns": ["distributor"]
+    },
+    {
+      "name": "settlements",
+      "columns": ["distributor_name"]
+    },
+    {
+      "name": "settlement_history",
+      "columns": ["distributor_name"]
+    },
+    {
+      "name": "user_profiles",
+      "columns": ["distributor"]
+    }
+  ],
+  "tablesWithoutDistributor": [
+    "ranking_status",
+    "works",
+    "slot_rank_history",
+    "settlement_requests",
+    "distributors"
+  ],
+  "missingTables": []
+}

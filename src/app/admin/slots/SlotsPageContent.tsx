@@ -67,7 +67,7 @@ interface Slot {
 function SlotsPageContentInner() {
   // const router = useRouter();
   const [slots, setSlots] = useState<Slot[]>([]);
-  
+
   // 개발 모드에서만 디버깅 로그 출력
   const isDevMode = process.env.NODE_ENV === 'development';
   const [loading, setLoading] = useState(true);
@@ -104,7 +104,7 @@ function SlotsPageContentInner() {
         throw new Error('Failed to fetch distributors');
       }
       const result = await response.json();
-      
+
       if (result.success && Array.isArray(result.data)) {
         setDistributors(['전체', ...result.data]);
       }
@@ -117,21 +117,95 @@ function SlotsPageContentInner() {
   async function fetchSlots() {
     try {
       setLoading(true);
-      const response = await fetch('/api/slots');
+
+      // 현재 사용자 정보 가져오기
+      const userStr = localStorage.getItem('user');
+      let apiUrl = '/api/slots';
+
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        console.log('👤 현재 사용자:', user.username, user.grade);
+
+        // 총판회원: 본인 소속 고객만 조회
+        if (user.grade === '총판회원' && user.username !== 'master') {
+          apiUrl += `?distributor=${encodeURIComponent(user.distributor)}`;
+          console.log(`✅ 총판 필터 적용: ${user.distributor}`);
+        }
+      }
+
+      const response = await fetch(apiUrl);
       if (!response.ok) {
         throw new Error('Failed to fetch slots');
       }
       const result = await response.json();
 
+      let slotsData: Slot[] = [];
+
       // API 응답 구조에 맞게 데이터 추출
       if (result.success && Array.isArray(result.data)) {
-        setSlots(result.data);
+        slotsData = result.data;
       } else if (Array.isArray(result)) {
         // 직접 배열로 응답하는 경우
-        setSlots(result);
+        slotsData = result;
       } else {
         console.error('Unexpected API response structure:', result);
         setSlots([]);
+        return;
+      }
+
+      // 🔥 각 슬롯의 distributor 정보를 user_profiles에서 조회하여 업데이트
+      if (slotsData && slotsData.length > 0) {
+        console.log('🔍 distributor 정보 조회 시작...');
+
+        // 고유한 customer_id 목록 추출
+        const uniqueCustomerIds = [
+          ...new Set(slotsData.map(slot => slot.customer_id)),
+        ];
+        console.log('고유한 고객 수:', uniqueCustomerIds.length);
+
+        // 각 고객의 distributor 정보 조회
+        const distributorMap = new Map();
+
+        for (const customerId of uniqueCustomerIds) {
+          try {
+            const userResponse = await fetch(
+              `/api/users?username=${encodeURIComponent(customerId)}`
+            );
+            const userResult = await userResponse.json();
+
+            if (
+              userResult.success &&
+              userResult.data &&
+              userResult.data.length > 0
+            ) {
+              const distributor = userResult.data[0].distributor || '일반';
+              distributorMap.set(customerId, distributor);
+              console.log(`✅ ${customerId} → ${distributor}`);
+            } else {
+              distributorMap.set(customerId, '일반');
+              console.log(`⚠️  ${customerId} → distributor 정보 없음`);
+            }
+          } catch (error) {
+            console.error(`❌ ${customerId} distributor 조회 오류:`, error);
+            distributorMap.set(customerId, '일반');
+          }
+        }
+
+        // 슬롯 데이터에 distributor 정보 매핑
+        const updatedSlots = slotsData.map(slot => ({
+          ...slot,
+          distributor: distributorMap.get(slot.customer_id) || '일반',
+        }));
+
+        console.log('✅ distributor 매핑 완료');
+        console.log(
+          '첫 번째 슬롯의 distributor:',
+          updatedSlots[0]?.distributor
+        );
+
+        setSlots(updatedSlots);
+      } else {
+        setSlots(slotsData);
       }
     } catch (error) {
       console.error('Error fetching slots:', error);
@@ -145,7 +219,7 @@ function SlotsPageContentInner() {
   const handleEditSlot = (slot: Slot) => {
     setEditingId(slot.id);
     setEditForm({
-      memo: slot.memo
+      memo: slot.memo,
     });
   };
 
@@ -175,7 +249,8 @@ function SlotsPageContentInner() {
 
   const handleSlotStatusChange = async (slot: Slot, newStatus: string) => {
     const action = newStatus === 'inactive' ? '중지' : '재개';
-    const actionText = newStatus === 'inactive' ? '중지하시겠습니까' : '재개하시겠습니까';
+    const actionText =
+      newStatus === 'inactive' ? '중지하시겠습니까' : '재개하시겠습니까';
 
     try {
       if (isDevMode) console.log(`${action} 버튼 클릭:`, slot);
@@ -268,12 +343,13 @@ function SlotsPageContentInner() {
 
   // 슬롯타입 버튼 클릭 핸들러
   const handleSlotTypeClick = (slot: Slot) => {
-    if (isDevMode) console.log('🔍 슬롯타입 버튼 클릭:', {
-      slotType: slot.slot_type,
-      slotCount: slot.slot_count,
-      customerId: slot.customer_id,
-      customerName: slot.customer_name,
-    });
+    if (isDevMode)
+      console.log('🔍 슬롯타입 버튼 클릭:', {
+        slotType: slot.slot_type,
+        slotCount: slot.slot_count,
+        customerId: slot.customer_id,
+        customerName: slot.customer_name,
+      });
 
     // 작업 등록 페이지로 이동
     const params = new URLSearchParams({
@@ -386,13 +462,23 @@ function SlotsPageContentInner() {
 
   // 필터링된 슬롯 목록
   const filteredSlots = slots.filter(slot => {
-    const matchesDistributor = selectedDistributor === 'all' || selectedDistributor === '전체' || slot.distributor === selectedDistributor;
-    const matchesSlotType = selectedSlotType === 'all' || slot.slot_type === selectedSlotType;
-    const matchesKeyword = searchKeyword === '' || 
-      (slot.customer_id && slot.customer_id.toLowerCase().includes(searchKeyword.toLowerCase())) ||
-      (slot.customer_name && slot.customer_name.toLowerCase().includes(searchKeyword.toLowerCase())) ||
-      (slot.memo && slot.memo.toLowerCase().includes(searchKeyword.toLowerCase()));
-    
+    const matchesDistributor =
+      selectedDistributor === 'all' ||
+      selectedDistributor === '전체' ||
+      slot.distributor === selectedDistributor;
+    const matchesSlotType =
+      selectedSlotType === 'all' || slot.slot_type === selectedSlotType;
+    const matchesKeyword =
+      searchKeyword === '' ||
+      (slot.customer_id &&
+        slot.customer_id.toLowerCase().includes(searchKeyword.toLowerCase())) ||
+      (slot.customer_name &&
+        slot.customer_name
+          .toLowerCase()
+          .includes(searchKeyword.toLowerCase())) ||
+      (slot.memo &&
+        slot.memo.toLowerCase().includes(searchKeyword.toLowerCase()));
+
     return matchesDistributor && matchesSlotType && matchesKeyword;
   });
 
@@ -547,19 +633,21 @@ function SlotsPageContentInner() {
                         >
                           잔여기간
                           <div className="flex flex-col">
-                            <ChevronUp 
+                            <ChevronUp
                               className={`w-3 h-3 ${
-                                sortField === 'remaining_days' && sortDirection === 'asc' 
-                                  ? 'text-blue-600' 
+                                sortField === 'remaining_days' &&
+                                sortDirection === 'asc'
+                                  ? 'text-blue-600'
                                   : 'text-gray-400'
-                              }`} 
+                              }`}
                             />
-                            <ChevronDown 
+                            <ChevronDown
                               className={`w-3 h-3 ${
-                                sortField === 'remaining_days' && sortDirection === 'desc' 
-                                  ? 'text-blue-600' 
+                                sortField === 'remaining_days' &&
+                                sortDirection === 'desc'
+                                  ? 'text-blue-600'
                                   : 'text-gray-400'
-                              }`} 
+                              }`}
                             />
                           </div>
                         </button>
@@ -590,9 +678,15 @@ function SlotsPageContentInner() {
                           </td>
                           <td className="border border-gray-300 p-3 text-center text-sm">
                             <div className="flex flex-col gap-1 text-xs">
-                              <div className="font-medium">{slot.customer_id}</div>
-                              <div className="text-gray-600">{slot.customer_name}</div>
-                              <div className="text-gray-500">{slot.distributor || '일반'}</div>
+                              <div className="font-medium">
+                                {slot.customer_id}
+                              </div>
+                              <div className="text-gray-600">
+                                {slot.customer_name}
+                              </div>
+                              <div className="text-gray-500">
+                                {slot.distributor || '일반'}
+                              </div>
                             </div>
                           </td>
                           <td className="border border-gray-300 p-3 text-center text-sm">
@@ -609,7 +703,9 @@ function SlotsPageContentInner() {
                             {slot.slot_count}
                           </td>
                           <td className="border border-gray-300 p-3 text-center text-sm">
-                            <span className="text-green-600 font-medium">{formatCurrency(slot.payment_amount || 0)}원</span>
+                            <span className="text-green-600 font-medium">
+                              {formatCurrency(slot.payment_amount || 0)}원
+                            </span>
                           </td>
                           <td className="border border-gray-300 p-3 text-center text-sm">
                             {slot.extension_count || 0}
@@ -627,7 +723,8 @@ function SlotsPageContentInner() {
                                     : 'bg-green-100 text-green-800'
                               }`}
                             >
-                              {slot.remainingTimeString || `${slot.remaining_days || 0}일`}
+                              {slot.remainingTimeString ||
+                                `${slot.remaining_days || 0}일`}
                             </span>
                           </td>
                           <td className="border border-gray-300 p-3 text-center text-sm">
@@ -700,13 +797,24 @@ function SlotsPageContentInner() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => handleSlotStatusChange(slot, slot.status === 'inactive' ? 'active' : 'inactive')}
+                                    onClick={() =>
+                                      handleSlotStatusChange(
+                                        slot,
+                                        slot.status === 'inactive'
+                                          ? 'active'
+                                          : 'inactive'
+                                      )
+                                    }
                                     className={`h-6 w-6 p-0 ${
-                                      slot.status === 'inactive' 
-                                        ? 'text-green-600 hover:text-green-800' 
+                                      slot.status === 'inactive'
+                                        ? 'text-green-600 hover:text-green-800'
                                         : 'text-orange-600 hover:text-orange-800'
                                     }`}
-                                    title={slot.status === 'inactive' ? '재개' : '중지'}
+                                    title={
+                                      slot.status === 'inactive'
+                                        ? '재개'
+                                        : '중지'
+                                    }
                                   >
                                     {slot.status === 'inactive' ? (
                                       <Play className="w-4 h-4" />

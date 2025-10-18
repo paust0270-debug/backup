@@ -67,6 +67,7 @@ interface CustomerSlot {
   customer: string;
   nickname: string;
   workGroup: string;
+  distributor?: string; // 소속총판
   keyword: string;
   linkUrl: string;
   currentRank: string;
@@ -647,6 +648,7 @@ function SlotAddPageContent() {
             customer: item.customer_id || item.customer_name || 'unknown', // 고객 ID 표시
             nickname: item.customer_name || 'unknown', // 고객명을 닉네임으로 표시
             workGroup: item.work_group || '공통',
+            distributor: item.distributor || '-', // 소속총판 추가
             keyword: item.keyword || '',
             linkUrl: item.link_url || '',
             currentRank: item.current_rank || '-',
@@ -2387,7 +2389,7 @@ function SlotAddPageContent() {
                                           ({customer.nickname})
                                         </div>
                                         <div className="text-xs text-gray-500">
-                                          {customer.workGroup}
+                                          {customer.distributor || '-'}
                                         </div>
                                       </>
                                     );
@@ -2438,7 +2440,7 @@ function SlotAddPageContent() {
                                           ({customer.nickname})
                                         </div>
                                         <div className="text-xs text-gray-500">
-                                          {customer.workGroup}
+                                          {customer.distributor || '-'}
                                         </div>
                                       </>
                                     );

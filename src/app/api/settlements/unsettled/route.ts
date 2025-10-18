@@ -5,9 +5,15 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     console.log('미정산 내역 조회 시작');
+
+    // URL 파라미터에서 필터링 조건 가져오기
+    const { searchParams } = new URL(request.url);
+    const distributorFilter = searchParams.get('distributor_name');
+
+    console.log('📋 미정산 내역 조회 - 필터:', { distributorFilter });
 
     // settlements 테이블에서 pending 상태의 데이터 조회
     const { data: pendingSettlements, error } = await supabase
@@ -60,6 +66,14 @@ export async function GET() {
         }
       }
 
+      // 총판 필터링 적용
+      if (distributorFilter && distributorName !== distributorFilter) {
+        console.log(
+          `❌ 필터링: ${settlement.customer_id} (${distributorName} !== ${distributorFilter})`
+        );
+        continue; // 필터와 맞지 않으면 건너뛰기
+      }
+
       settlementItems.push({
         id: settlement.id,
         customer_id: settlement.customer_id,
@@ -78,6 +92,8 @@ export async function GET() {
         type: settlement.payment_type === 'extension' ? 'extension' : 'deposit',
       });
     }
+
+    console.log(`✅ 필터링 완료: ${settlementItems.length}개 항목 반환`);
 
     return NextResponse.json({
       success: true,

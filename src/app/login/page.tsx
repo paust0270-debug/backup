@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { saveSession, getSession, canLogin } from '@/lib/session';
+import { validateUserPermissions } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,30 +12,23 @@ export default function LoginPage() {
     username: '',
     password: '',
     rememberMe: false,
-    saveUsername: false
+    saveUsername: false,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // 페이지 로드 시 저장된 로그인 정보 확인
+  // 페이지 로드 시 이미 로그인된 경우 리다이렉트
   useEffect(() => {
-    const checkRememberedLogin = async () => {
-      try {
-        const response = await fetch('/api/auth/check-remembered', {
-          method: 'GET',
-          credentials: 'include'
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success && result.user) {
-            // 저장된 로그인 정보가 있으면 자동 로그인
-            localStorage.setItem('user', JSON.stringify(result.user));
-            router.push('/customer');
-          }
+    const checkExistingSession = () => {
+      const user = getSession();
+      if (user && validateUserPermissions(user)) {
+        console.log('✅ 이미 로그인된 사용자:', user.username);
+        // 권한에 따른 리다이렉트
+        if (user.grade === '일반회원') {
+          router.push('/dashboard');
+        } else {
+          router.push('/customer');
         }
-      } catch (error) {
-        console.log('저장된 로그인 정보 확인 실패:', error);
       }
     };
 
@@ -43,18 +38,18 @@ export default function LoginPage() {
       setFormData(prev => ({
         ...prev,
         username: savedUsername,
-        saveUsername: true
+        saveUsername: true,
       }));
     }
 
-    checkRememberedLogin();
+    checkExistingSession();
   }, [router]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
@@ -75,6 +70,20 @@ export default function LoginPage() {
       const result = await response.json();
 
       if (result.success) {
+        // 사용자 권한 검증
+        if (!validateUserPermissions(result.user)) {
+          setError('사용자 정보가 올바르지 않습니다.');
+          return;
+        }
+
+        // 로그인 가능 여부 확인 (status === 'active')
+        if (result.user.status !== 'active') {
+          setError(
+            '계정이 승인되지 않았거나 정지되었습니다. 관리자에게 문의하세요.'
+          );
+          return;
+        }
+
         // 아이디 저장 처리
         if (formData.saveUsername) {
           localStorage.setItem('savedUsername', formData.username);
@@ -82,9 +91,17 @@ export default function LoginPage() {
           localStorage.removeItem('savedUsername');
         }
 
-        // 로그인 성공 시 세션에 사용자 정보 저장
-        localStorage.setItem('user', JSON.stringify(result.user));
-        router.push('/customer');
+        // 세션 저장 (세션 유틸리티 사용)
+        saveSession(result.user);
+
+        console.log('✅ 로그인 성공:', result.user.username);
+
+        // 권한에 따른 리다이렉트
+        if (result.user.grade === '일반회원') {
+          router.push('/dashboard');
+        } else {
+          router.push('/customer');
+        }
       } else {
         setError(result.error || '로그인에 실패했습니다.');
       }
@@ -105,9 +122,7 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               쿠팡 순위체크 서비스
             </h1>
-            <p className="text-gray-600">
-              계정에 로그인하세요
-            </p>
+            <p className="text-gray-600">계정에 로그인하세요</p>
           </div>
 
           {/* 에러 메시지 */}
@@ -120,7 +135,10 @@ export default function LoginPage() {
           {/* 로그인 폼 */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 아이디
               </label>
               <input
@@ -137,7 +155,10 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 비밀번호
               </label>
               <input
@@ -165,11 +186,14 @@ export default function LoginPage() {
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   disabled={loading}
                 />
-                <label htmlFor="saveUsername" className="ml-2 block text-sm text-gray-700">
+                <label
+                  htmlFor="saveUsername"
+                  className="ml-2 block text-sm text-gray-700"
+                >
                   아이디 저장
                 </label>
               </div>
-              
+
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -180,7 +204,10 @@ export default function LoginPage() {
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   disabled={loading}
                 />
-                <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700">
+                <label
+                  htmlFor="rememberMe"
+                  className="ml-2 block text-sm text-gray-700"
+                >
                   로그인 유지
                 </label>
               </div>
@@ -194,7 +221,7 @@ export default function LoginPage() {
               >
                 {loading ? '로그인 중...' : '로그인'}
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => router.push('/signup')}

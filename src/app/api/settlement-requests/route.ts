@@ -68,8 +68,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const distributor = searchParams.get('distributor');
+    const distributorFilter = searchParams.get('distributor_name'); // 총판 필터링용
 
-    console.log('정산요청 조회 시작 - 필터:', { status, distributor });
+    console.log('📋 정산요청 조회 시작 - 필터:', {
+      status,
+      distributor,
+      distributorFilter,
+    });
 
     // settlements 테이블에서 데이터 조회
     // status 파라미터에 따라 다른 상태 조회
@@ -139,6 +144,14 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // 총판 필터링 적용
+      if (distributorFilter && distributorName !== distributorFilter) {
+        console.log(
+          `❌ 필터링: ${item.customer_id} (${distributorName} !== ${distributorFilter})`
+        );
+        continue; // 필터와 맞지 않으면 건너뛰기
+      }
+
       processedData.push({
         ...item,
         distributor_name: distributorName, // user_profiles에서 가져온 실제 총판명
@@ -152,6 +165,8 @@ export async function GET(request: NextRequest) {
         slot_addition_date: item.created_at,
       });
     }
+
+    console.log(`✅ 필터링 완료: ${processedData.length}개 항목 반환`);
 
     return NextResponse.json({
       success: true,
